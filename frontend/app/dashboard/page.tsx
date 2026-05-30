@@ -119,12 +119,16 @@ export default function Dashboard() {
   }
 
   const subscribeRealtime = async (id: string) => {
-    await insforge.realtime.connect()
-    await insforge.realtime.subscribe(`investigation:${id}`)
-    insforge.realtime.on('progress', (payload: { step: string }) => {
-      setCurrentStep(payload.step)
-      setCompletedSteps(prev => prev.includes(payload.step) ? prev : [...prev, payload.step])
-    })
+    try {
+      await insforge.realtime.connect()
+      await insforge.realtime.subscribe(`investigation:${id}`)
+      insforge.realtime.on('progress', (payload: { step: string }) => {
+        setCurrentStep(payload.step)
+        setCompletedSteps(prev => prev.includes(payload.step) ? prev : [...prev, payload.step])
+      })
+    } catch {
+      // realtime is optional — investigation continues without live updates
+    }
   }
 
   const investigate = async () => {
@@ -149,6 +153,8 @@ export default function Dashboard() {
       }
       const data = await res.json()
       setDiagnosis(data.diagnosis)
+      // Mark all steps done in case realtime didn't fire
+      setCompletedSteps(STEPS.map(s => s.key))
       await loadHistory()
     } catch (e: unknown) {
       if (e instanceof Error && e.name === 'AbortError')
@@ -156,7 +162,7 @@ export default function Dashboard() {
       else
         setError(e instanceof Error ? e.message : 'Investigation failed')
     } finally {
-      insforge.realtime.unsubscribe(`investigation:${investigationIdRef.current!}`)
+      try { insforge.realtime.unsubscribe(`investigation:${investigationIdRef.current!}`) } catch { /* ignore */ }
       setInvestigating(false); setCurrentStep('')
     }
   }
