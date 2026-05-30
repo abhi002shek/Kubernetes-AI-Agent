@@ -67,6 +67,19 @@ Dashboard + History detail pages
 
 ---
 
+## Pause & resume
+
+Stopping for the day or coming back later:
+
+```bash
+./scripts/stop.sh    # free resources
+./scripts/start.sh   # back in ~30s — http://localhost:3001
+```
+
+Details: [docs/RESUME.md](docs/RESUME.md)
+
+---
+
 ## Quick Start (local dev)
 
 ### 1. Clone
@@ -195,18 +208,22 @@ Get the anon key: `npx @insforge/cli secrets get ANON_KEY`
 | GET | `/namespaces?context=<ctx>` | List namespaces |
 | POST | `/investigate` | Run full investigation |
 
-**POST /investigate body:**
+**POST /investigate** requires a valid InsForge user JWT:
+
+```http
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
 
 ```json
 {
   "investigation_id": "uuid-from-frontend",
-  "user_id": "insforge-user-uuid",
   "context": "kind-my-cluster",
   "namespace": "default"
 }
 ```
 
-`investigation_id` aligns realtime progress with the database row. `user_id` is optional but required to persist history.
+The backend verifies the token with InsForge and derives `user_id` from the session — never trust a client-supplied user id. `investigation_id` aligns realtime progress with the database row.
 
 ---
 
@@ -230,7 +247,8 @@ Use this before exposing the app to real users or production clusters.
 
 - [ ] **Never commit** `.env`, `.env.local`, kubeconfig files, or API keys (see `.gitignore`)
 - [ ] **Lock down CORS** in `backend/main.py` — replace `allow_origins=["*"]` with your frontend origin(s)
-- [ ] **Protect `/investigate`** — today the backend trusts `user_id` from the client and does not verify JWTs. For production, validate the InsForge access token on each request or run the backend inside a private network
+- [x] **Protect `/investigate`** — requires `Authorization: Bearer <InsForge access token>`; user id is taken from the verified session
+- [ ] **Protect `/clusters` and `/namespaces`** — still open if the API is reachable; restrict network access or add the same JWT check if exposing publicly
 - [ ] **Rate limit** `/investigate` (e.g. `slowapi`) to prevent abuse and LLM cost spikes
 - [ ] **HTTPS** everywhere (TLS termination at load balancer or ingress)
 - [ ] **InsForge RLS** enabled on `investigations` and `investigation_progress` (included in schema SQL)
@@ -303,7 +321,8 @@ Set `SLACK_WEBHOOK_URL` in `backend/.env`. Create a webhook at [api.slack.com/me
 | OTP invalid / expired | Use latest code, **Resend verification code**, codes expire quickly |
 | OAuth redirect error | Run `npx @insforge/cli config apply -y` and add your URL to `insforge.toml` |
 | No clusters in UI | Backend needs kubeconfig access; check `kubectl config get-contexts` |
-| History empty | `user_id` must be sent on `/investigate`; check `INSFORGE_API_KEY` in backend `.env` |
+| History empty | Sign in and send a valid Bearer token on `/investigate`; check `INSFORGE_API_KEY` in backend `.env` |
+| 401 on investigate | Session expired — sign out and sign in again; ensure `INSFORGE_URL` matches your frontend project |
 
 ---
 

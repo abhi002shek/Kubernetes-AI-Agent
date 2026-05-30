@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { insforge } from '@/lib/insforge'
+import { getAuthHeaders } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 
 const STEPS = [
@@ -147,18 +148,22 @@ export default function Dashboard() {
     try {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 120_000)
+      const headers = await getAuthHeaders()
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/investigate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           investigation_id: id,
-          user_id: user?.id,
           context: selectedCluster,
           namespace: selectedNamespace === 'all' ? null : selectedNamespace,
         }),
         signal: controller.signal,
       })
       clearTimeout(timer)
+      if (res.status === 401) {
+        router.push('/sign-in')
+        throw new Error('Session expired. Please sign in again.')
+      }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.detail || `Server error: ${res.status}`)
