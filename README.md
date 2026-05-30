@@ -257,9 +257,51 @@ Confidence: 94%
 
 1. **Lock down CORS** — change `allow_origins=["*"]` in `main.py` to your frontend domain
 2. **Add rate limiting** — use `slowapi` on the `/investigate` endpoint
-3. **Secure kubeconfig** — mount as a Kubernetes Secret if deploying the agent inside a cluster
-4. **Use a paid LLM model** — free models have rate limits; `anthropic/claude-3.5-sonnet` gives best results
-5. **Set up RLS** in InsForge so users only see their own investigation history
+3. **Use a paid LLM model** — free models have rate limits; `anthropic/claude-3.5-sonnet` gives best results
+4. **Set up RLS** in InsForge so users only see their own investigation history
+
+### Kubeconfig in Production
+
+You **never** commit a real kubeconfig. How it works in real environments:
+
+| Deployment | How kubectl authenticates |
+|------------|--------------------------|
+| Agent runs **inside** Kubernetes (recommended) | Uses in-cluster service account automatically — no kubeconfig needed |
+| Agent runs **outside** Kubernetes (VM/EC2/VPS) | Mount kubeconfig via your secret manager (AWS Secrets Manager, Vault, K8s Secret) and set `KUBECONFIG_PATH` in env |
+| Local development | Uses `~/.kube/config` automatically |
+
+**Recommended production setup** — deploy the agent as a pod inside your cluster with a ServiceAccount that has read-only access:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k8s-ai-agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: k8s-ai-agent-reader
+rules:
+- apiGroups: ["", "apps", "events.k8s.io"]
+  resources: ["pods", "pods/log", "events", "deployments", "services", "endpoints", "nodes", "persistentvolumeclaims"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: k8s-ai-agent-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: k8s-ai-agent-reader
+subjects:
+- kind: ServiceAccount
+  name: k8s-ai-agent
+  namespace: default
+```
+
+See `kubeconfig.example.yaml` for the file structure reference.
 
 ---
 
