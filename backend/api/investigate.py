@@ -3,7 +3,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from loguru import logger
 from services.investigation import run_investigation
-from services.insforge_client import publish_progress, save_investigation
+from services.insforge_client import (
+    record_progress_step,
+    create_investigation,
+    complete_investigation,
+    fail_investigation,
+)
 from services.slack import notify_slack
 from ai import analyze
 
@@ -11,6 +16,7 @@ router = APIRouter()
 
 
 class InvestigateRequest(BaseModel):
+    investigation_id: str | None = None
     user_id: str | None = None
     context: str | None = None
     namespace: str | None = None
@@ -18,17 +24,22 @@ class InvestigateRequest(BaseModel):
 
 @router.post("/investigate")
 def investigate(body: InvestigateRequest = InvestigateRequest()):
-    investigation_id = str(uuid.uuid4())
+    investigation_id = body.investigation_id or str(uuid.uuid4())
+    ns = body.namespace or "all"
+
+    if body.user_id:
+        create_investigation(investigation_id, body.user_id, body.context, ns)
+
     try:
         investigation = run_investigation(investigation_id, context=body.context, namespace=body.namespace)
 
-        publish_progress(investigation_id, "AI Reasoning")
+        record_progress_step(investigation_id, "AI Reasoning")
         diagnosis = analyze(investigation)
 
-        publish_progress(investigation_id, "Root Cause Found", status="completed")
+        record_progress_step(investigation_id, "Root Cause Found", status="completed")
 
         if body.user_id:
-            save_investigation(body.user_id, diagnosis)
+            complete_investigation(investigation_id, diagnosis, body.context, ns)
 
         notify_slack(diagnosis, context=body.context, namespace=body.namespace)
 
@@ -40,4 +51,6 @@ def investigate(body: InvestigateRequest = InvestigateRequest()):
         }
     except Exception as e:
         logger.error(f"Investigation failed: {e}")
+        if body.user_id:
+            fail_investigation(investigation_id, str(e))
         raise HTTPException(status_code=500, detail=str(e))

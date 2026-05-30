@@ -1,0 +1,15 @@
+# InsForge project config — apply with: npx @insforge/cli config apply -y
+
+[auth]
+allowed_redirect_urls = [
+  "http://localhost:3000",
+  "http://localhost:3000/sign-in",
+  "http://localhost:3000/sign-up",
+  "http://localhost:3000/dashboard",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3000/sign-in",
+  "http://127.0.0.1:3000/dashboard",
+  "http://localhost:3001",
+  "http://localhost:3001/sign-in",
+  "http://localhost:3001/dashboard",
+]

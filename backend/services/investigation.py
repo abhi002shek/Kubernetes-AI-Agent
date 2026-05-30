@@ -1,7 +1,7 @@
 import uuid
 from loguru import logger
 from kubernetes import inspect_pods, collect_logs, analyze_events, inspect_deployments, inspect_network, inspect_nodes, inspect_pvcs
-from services.insforge_client import publish_progress
+from services.insforge_client import record_progress_step
 
 
 def run_investigation(investigation_id: str | None = None, context: str | None = None, namespace: str | None = None) -> dict:
@@ -10,25 +10,25 @@ def run_investigation(investigation_id: str | None = None, context: str | None =
 
     logger.info(f"Starting investigation {investigation_id} context={context or 'default'} namespace={namespace or 'all'}")
 
-    publish_progress(investigation_id, "Checking Pods")
+    record_progress_step(investigation_id, "Checking Pods")
     pods = inspect_pods(namespace=namespace, context=context)
 
-    publish_progress(investigation_id, "Reading Logs")
+    record_progress_step(investigation_id, "Reading Logs")
     logs = collect_logs(pods.get("problematic_pods", []), context=context)
 
-    publish_progress(investigation_id, "Analyzing Events")
+    record_progress_step(investigation_id, "Analyzing Events")
     events = analyze_events(namespace=namespace, context=context)
 
-    publish_progress(investigation_id, "Inspecting Deployments")
+    record_progress_step(investigation_id, "Inspecting Deployments")
     deployments = inspect_deployments(namespace=namespace, context=context)
 
-    publish_progress(investigation_id, "Checking Networking")
+    record_progress_step(investigation_id, "Checking Networking")
     network = inspect_network(namespace=namespace, context=context)
 
-    publish_progress(investigation_id, "Checking Nodes")
+    record_progress_step(investigation_id, "Checking Nodes")
     nodes = inspect_nodes(context=context)
 
-    publish_progress(investigation_id, "Checking Storage")
+    record_progress_step(investigation_id, "Checking Storage")
     pvcs = inspect_pvcs(namespace=namespace, context=context)
 
     logger.info("Investigation complete")

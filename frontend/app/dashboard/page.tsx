@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { insforge } from '@/lib/insforge'
 import { useAuth } from '@/context/AuthContext'
 
@@ -22,7 +23,13 @@ interface Diagnosis {
   kubectl_commands: string[]; prevention: string; confidence: number
 }
 interface Investigation {
-  id: string; root_cause: string; confidence: number; status: string; created_at: string
+  id: string
+  root_cause: string
+  confidence: number
+  status: string
+  created_at: string
+  context?: string
+  namespace?: string
 }
 
 // Kubernetes logo SVG as a watermark component
@@ -113,7 +120,7 @@ export default function Dashboard() {
 
   const loadHistory = async () => {
     const { data } = await insforge.database
-      .from('investigations').select('id, root_cause, confidence, status, created_at')
+      .from('investigations').select('id, root_cause, confidence, status, created_at, context, namespace')
       .order('created_at', { ascending: false }).limit(5)
     if (data) setHistory(data as Investigation[])
   }
@@ -143,7 +150,12 @@ export default function Dashboard() {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/investigate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: user?.id, context: selectedCluster, namespace: selectedNamespace === 'all' ? null : selectedNamespace }),
+        body: JSON.stringify({
+          investigation_id: id,
+          user_id: user?.id,
+          context: selectedCluster,
+          namespace: selectedNamespace === 'all' ? null : selectedNamespace,
+        }),
         signal: controller.signal,
       })
       clearTimeout(timer)
@@ -343,15 +355,32 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-2">
                   {history.map(inv => (
-                    <div key={inv.id} className="flex items-start justify-between gap-2 py-2 border-b border-white/5 last:border-0">
-                      <div className="min-w-0">
-                        <p className="text-xs text-slate-300 truncate">{inv.root_cause || 'Unknown'}</p>
-                        <p className="text-[10px] text-slate-600 mt-0.5">{new Date(inv.created_at).toLocaleString()}</p>
+                    <Link
+                      key={inv.id}
+                      href={`/dashboard/history/${inv.id}`}
+                      className="flex items-start justify-between gap-2 py-2.5 px-2 -mx-2 rounded-xl border-b border-white/5 last:border-0 hover:bg-slate-800/50 transition-colors group"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-slate-300 truncate group-hover:text-white transition-colors">
+                          {inv.root_cause || 'Unknown'}
+                        </p>
+                        <p className="text-[10px] text-slate-600 mt-0.5">
+                          {new Date(inv.created_at).toLocaleString()}
+                          {(inv.context || inv.namespace) && (
+                            <span className="text-slate-500">
+                              {' · '}
+                              {inv.namespace && inv.namespace !== 'all' ? inv.namespace : clusterLabel(inv.context || '')}
+                            </span>
+                          )}
+                        </p>
                       </div>
-                      <span className={`text-xs shrink-0 font-medium ${inv.confidence >= 80 ? 'text-green-400' : inv.confidence >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
-                        {inv.confidence}%
-                      </span>
-                    </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-xs font-medium ${inv.confidence >= 80 ? 'text-green-400' : inv.confidence >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {inv.confidence}%
+                        </span>
+                        <span className="text-slate-600 text-xs group-hover:text-blue-400">→</span>
+                      </div>
+                    </Link>
                   ))}
                 </div>
               </div>

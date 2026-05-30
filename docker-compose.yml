@@ -11,14 +11,12 @@ services:
       - "host.docker.internal:host-gateway"
 
   frontend:
-    build:
-      context: ./frontend
-      args:
-        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
-        NEXT_PUBLIC_INSFORGE_URL: https://rbjg7wa9.ap-southeast.insforge.app
-        NEXT_PUBLIC_INSFORGE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OC0xMjM0LTU2NzgtOTBhYi1jZGVmMTIzNDU2NzgiLCJlbWFpbCI6ImFub25AaW5zZm9yZ2UuY29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAxMzgzNDF9.lIEOCvvdBFkaSaeAa3QFZEKhghDYbNTHP0kSjEpAij8
+    build: ./frontend
     ports:
-      - "3000:3000"
+      # Host 3001 avoids conflict with local `npm run dev` on 3000
+      - "3001:3000"
+    env_file:
+      - ./frontend/.env.local
     environment:
       - HOSTNAME=0.0.0.0
     depends_on:
